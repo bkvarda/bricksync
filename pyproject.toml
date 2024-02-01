@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "bricksync"
+version = "0.1.0"
+description = ""
+authors = ["Brandon Kvarda <brandon.kvarda@databricks.com>"]
+readme = "README.md"
+packages = [{include = "bricksync"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+databricks-sdk = "^0.17.0"
+snowflake-connector-python = "^3.6.0"
+botocore = ">=1.33.0"
+cloudpathlib = {extras = ["azure", "gs", "s3"], version = "^0.17.0"}
+pytest = "^7.4.4"
+pytest-mock = "^3.12.0"
+sqlglot = "^20.11.0"
+pyyaml = "^6.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
