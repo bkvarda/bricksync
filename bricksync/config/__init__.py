@@ -6,7 +6,9 @@ from enum import Enum
 from databricks.sdk.service.catalog import TableType
 
 class TargetSyncStrategy(Enum):
-    MIRROR = "mirror"
+    MIRROR = "mirror" # Mirrors the catalog, schema, and table structure from the source to the target
+    CUSTOM_SCHEMA = "custom_schema" # Mirrors the catalog and tablename but with custom schema
+    CUSTOM_CATALOG = "custom_catalog" # Mirrors the tablename and schema but with custom catalog
 
 class TableFormatPreference(Enum):
     DELTA = "delta"
@@ -20,24 +22,6 @@ class TableFormat(Enum):
     AVRO = "avro"
     PARQUET = "parquet"
 
-class SyncTableType(Enum):
-    VIEW = "view"
-    TABLE = "table"
-    MATERIALIZED_VIEW = "materialized_view"
-    STREAMING_TABLE = "streaming_table"
-
-    def from_tabletype(table_type: TableType):
-        if table_type == TableType.VIEW:
-            return SyncTableType.VIEW
-        elif table_type == TableType.EXTERNAL or table_type == TableType.MANAGED:
-            return SyncTableType.TABLE
-        elif table_type == TableType.MATERIALIZED_VIEW:
-            return SyncTableType.MATERIALIZED_VIEW
-        elif table_type == TableType.STREAMING_TABLE:
-            return SyncTableType.STREAMING_TABLE
-        else:
-            raise Exception("Unknown table type")
-
 class ProviderType(Enum):
     DATABRICKS = "databricks"
     SNOWFLAKE = "snowflake"
@@ -48,14 +32,10 @@ class ProviderType(Enum):
     GLUE = "glue"
     ATHENA = "athena"
 
-class ProviderConfigType(Enum):
-    SOURCE = "source"
-    TARGET = "target"
 
 @dataclass
 class ProviderConfig:
     provider: ProviderType
-    type: ProviderConfigType
     username: Optional[str] = None
     password: Optional[str] = None
     token: Optional[str] = None
@@ -69,7 +49,16 @@ class SyncConfig:
     source: str
     source_provider: str
     target_provider: str
-    source_configuration: Optional[Dict[str, str]] = None
+    configuration: Optional[Dict[str, str]] = None
+
+@dataclass
+class SyncOptions:
+    target_catalog_ovveride: Optional[str] = None
+    target_schema_override: Optional[str] = None
+    target_table_override: Optional[str] = None
+    base_table_catalog_override: Optional[str] = None
+    base_table_schema_override: Optional[str] = None
+    target_provider_options: Optional[Dict[str, str]] = None 
 
 @dataclass
 class BrickSyncConfig:
@@ -79,8 +68,6 @@ class BrickSyncConfig:
     continuous: bool = False
     target_format_preference: TableFormatPreference = TableFormatPreference.DELTA_PREFERRED
     target_sync_strategy: TargetSyncStrategy = TargetSyncStrategy.MIRROR
-    default_source_provider: Optional[str] = None
-    default_target_provider: Optional[str] = None
     secret_provider: Optional[str] = None
     @classmethod
     def load(cls, config_path):

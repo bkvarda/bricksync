@@ -1,60 +1,82 @@
-from abc import ABC
 from dataclasses import dataclass
-from cloudpathlib import CloudPath
-from typing import List, Dict, Optional
-from bricksync.config import TableFormat, SyncTableType
-from enum import Enum
-from sqlglot.dialects.dialect import Dialects
-
-@dataclass 
-class SyncTableType(Enum):
-    VIEW = "view"
-    TABLE = "table"
-    MATERIALIZED_VIEW = "materialized_view"
-    STREAMING_TABLE = "streaming_table"
+from typing import List, Dict, Union, Optional, Tuple
+from sqlglot.dialects.dialect import Dialect
 
 @dataclass
-class TableFormat(Enum):
-    DELTA = "delta"
-    ICEBERG = "iceberg"
-    PARQUET = "parquet"
-    AVRO = "avro"
-    OTHER = "other"
+class Table():
+    name: str
+    storage_location: str
+
+    def is_view(self) -> bool:
+        return False
+    
+    def is_table(self) -> bool:
+        return True
+    
+    def is_iceberg(self) -> bool:
+        return False
+    
+    def is_delta(self) -> bool:
+        return False
+    
+    def set_name(self, name: str):
+        self.name = name
+    
 
 @dataclass
-class Source:
-    type: SyncTableType
-    table_name: str
-    source_dialect: Dialects
+class UniformIcebergInfo:
+    metadata_location: str
+    converted_delta_version: int
+    converted_delta_timestamp: str
 
 @dataclass
-class TableSource(Source):
-    storage_location: CloudPath
-    table_format: TableFormat
-    iceberg_metadata_location: CloudPath = None
-    partition_keys: List[str] = None
+class IcebergTable(Table):
+    iceberg_metadata_location: str
+
+    def is_iceberg(self) -> bool:
+        return True
 
 @dataclass
-class MaterializedViewSource(Source):
-    reconciliation_query: str
-    base_tables: List[Source]
+class DeltaTable(Table):
+    delta_properties: Dict[str, str]
+    uniform_iceberg_info: Optional[UniformIcebergInfo]
+
+    def is_iceberg(self) -> bool:
+        return self.uniform_iceberg_info is not None
+    
+    def is_delta(self) -> bool:
+        return True
+    
+    def to_iceberg_table(self) -> IcebergTable:
+        if not self.is_iceberg():
+            raise Exception(f"Table {self.name} does not have Iceberg metadatata")
+
+        return IcebergTable(name=self.name, 
+                            storage_location=self.storage_location, 
+                            iceberg_metadata_location=self.uniform_iceberg_info.metadata_location)
 
 @dataclass
-class ViewSource(Source):
+class ViewSource():
+    name: str
+
+    def is_view(self) -> bool:
+        return True
+    
+    def is_table(self) -> bool:
+        return False
+    
+    def set_name(self, name: str):
+        self.name = name
+
+@dataclass
+class View(ViewSource):
     view_definition: str
-    base_tables: List[Source]
+    dialect: Dialect
+    base_tables: List[Union[Table, ViewSource]]
 
-@dataclass
-class Target:
-    type: SyncTableType
-    table_name: str
-    exists: bool
-    ddl: str
-    refresh_query: str
+    def set_view_definition(self, view_definition: str):
+        self.view_definition = view_definition
 
-    def set_exists(self, exists: bool):
-        self.exists = exists
+    def set_base_tables(self, base_tables: List[Union[Table, ViewSource]]):
+        self.base_tables = base_tables
 
-@dataclass
-class ViewTarget(Target):
-    base_tables: List[Target]

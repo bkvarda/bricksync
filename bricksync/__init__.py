@@ -1,10 +1,12 @@
 
-from bricksync.config import BrickSyncConfig, ProviderType, ProviderConfigType, ProviderConfig, SyncConfig
+from bricksync.config import BrickSyncConfig, ProviderType, ProviderConfig, SyncConfig
 from bricksync.provider import Provider
-from bricksync.provider.source.databricks import DatabricksSource
-from bricksync.provider.target.snowflake import SnowflakeTarget
-from bricksync.provider.target.aws import GlueTarget, AthenaTarget
-from typing import List, Dict, Optional
+from bricksync.table import Table, View
+from bricksync.provider.catalog import CatalogProvider
+from bricksync.provider.catalog.databricks import DatabricksCatalog
+from bricksync.provider.catalog.snowflake import SnowflakeCatalog
+from bricksync.provider.catalog.glue import GlueCatalog
+from typing import List, Dict, Optional, Union, Tuple
 import logging
 
 logging.getLogger(__name__)
@@ -12,7 +14,6 @@ logging.getLogger(__name__)
 class BrickSync():
     def __init__(self, config: BrickSyncConfig):
         self.config = config
-        self.secret_provider = self.config.secret_provider
         self.providers = self._initialize_providers()
         
     @classmethod
@@ -46,6 +47,56 @@ class BrickSync():
         provider = ProviderConfig(provider, configuration=configuration)
         self.config.add_provider(name, provider)
 
+    def _sync(self, source_provider: CatalogProvider, src: Union[Table, View],
+              target_provider: CatalogProvider, target: str):
+        print(f"Working on {src.name}")
+        print(src)
+        target_catalog = target_provider.get_catalog_from_name(src)
+        target_schema = target_provider.get_schema_from_name(src)
+        target_provider.create_catalog(target_catalog)
+        target_provider.create_schema(target_catalog, target_schema)
+        if src.is_view():
+            base_tables = src.base_tables
+            for t in base_tables:
+                print(t)
+                print(f"Working on {t.name}")
+                self._sync(source_provider, t, target_provider, target)
+            target_provider.create_or_refresh_view(src)
+        else:
+            # if delta table
+            if src.is_delta():
+                try:
+                    iceberg = src.to_iceberg_table()
+                    print(f"Working on {src.name}")
+                    print(f"Working on {iceberg.name}")
+                    print(src)
+                    print(target_provider.create_or_refresh_external_table(iceberg))
+                except:
+                    raise Exception("Error converting delta table to iceberg")
+            elif src.is_iceberg():
+                print(f"Working on {src.name}")
+                print(src)
+                print(target_provider.create_or_refresh_external_table(src))
+            else:
+                raise Exception("Unsupported table type")
+        return
+ 
+    
+    def sync(self, source_provider: str, source: str, 
+             target_provider: str, target: str):
+        src_provider: CatalogProvider = self.get_provider(source_provider)
+        tgt_provider: CatalogProvider = self.get_provider(target_provider)
+        source_table: Union[View, Table] = src_provider.get_table(source)
+        self._sync(src_provider, source_table, tgt_provider, target)
+        return
+    
+    def sync_all(self, source_provider: str, source: str, target_providers: List[str], target: str):
+        src_provider: CatalogProvider = self.get_provider(source_provider)
+        for tgt in target_providers:
+            tgt_provider: CatalogProvider = self.get_provider(tgt)
+            self._sync(src_provider, source, tgt_provider, target)
+        return
+
     def _is_value_secret(self, value: str) -> bool:
         if value.startswith("secret://"):
             return True
@@ -58,32 +109,22 @@ class BrickSync():
         for providers in self.config.providers:
             for k, v in providers.items():
                 try: 
-                  if v.provider.value == 'databricks' and v.type.value == 'source':
-                      logging.info(f"Initializing databricks source provider {k}...")
-                      providers_dct[k] = DatabricksSource.initialize(v,
-                                                                    self.config.target_format_preference)
-                  elif v.provider.value == 'snowflake' and v.type.value == 'target':
-                      logging.info(f"Initializing snowflake target provider {k}...")
-                      providers_dct[k] = SnowflakeTarget.initialize(v, self.config.target_sync_strategy)
-                  elif v.provider.value == 'glue' and v.type.value == 'target':
-                        logging.info(f"Initializing glue target provider {k}...")
-                        providers_dct[k] = GlueTarget.initialize(v, self.config.target_sync_strategy)
-                  elif v.provider.value == 'athena' and v.type.value == 'target':
-                        logging.info(f"Initializing athena target provider {k}...")
-                        providers_dct[k] = AthenaTarget.initialize(v, self.config.target_sync_strategy)    
+                  if v.provider.value == 'databricks':
+                      logging.info(f"Initializing databricks provider {k}...")
+                      providers_dct[k] = DatabricksCatalog.initialize(v)
+                  elif v.provider.value == 'snowflake':
+                      logging.info(f"Initializing snowflake provider {k}...")
+                      providers_dct[k] = SnowflakeCatalog.initialize(v)
+                  elif v.provider.value == 'glue':
+                        logging.info(f"Initializing glue provider {k}...")
+                        providers_dct[k] = GlueCatalog.initialize(v)
                   else:
                       raise Exception(f"Unknown provider type {v.type}")
                 except Exception as e:
                     raise Exception(f"Error initializing provider {k}: {e}")
         return providers_dct if len(providers_dct) > 0 else None
-    
-    def sync(self):
-        logging.info("Starting sync")
-        for sync_config in self.config.syncs:
-            source_provider = self.get_provider(sync_config.source_provider)
-            target_provider = self.get_provider(sync_config.target_provider)
-            sources = source_provider.get_sources(sync_config)
-            for source in sources:
-                target = target_provider.get_target(source)
-                logging.info(f"Syncing {source.table_name}")
-                logging.info(target_provider.update_target(target))
+
+            
+
+            
+            
