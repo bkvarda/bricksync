@@ -115,7 +115,7 @@ def dsp(mocker):
     sql_client = get_sql_client()
     mocker.patch("bricksync.provider.databricks.DatabricksProvider.authenticate", return_value=w)
     mocker.patch("bricksync.provider.databricks.DatabricksProvider._get_sql_client", return_value=sql_client)
-    dsp = DatabricksProvider(ProviderConfig("databricks", ProviderConfigType.SOURCE, configuration={"cluster_id": "12345"}))
+    dsp = DatabricksProvider(ProviderConfig("databricks", configuration={"cluster_id": "12345"}))
 
     for attr in vars(dsp.client):
         if attr == "_config":
