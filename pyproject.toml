@@ -2,7 +2,7 @@
 name = "bricksync"
 version = "0.1.0"
 description = ""
-authors = ["Brandon Kvarda <bjkvarda@gmail.com"]
+authors = ["Brandon Kvarda <bjkvarda@gmail.com>"]
 readme = "README.md"
 packages = [{include = "bricksync"}]
 
