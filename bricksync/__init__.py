@@ -46,6 +46,7 @@ class BrickSync():
     def add_provider(self, name: str, provider: ProviderType, configuration=None):
         provider = ProviderConfig(provider, configuration=configuration)
         self.config.add_provider(name, provider)
+        self._initialize_provider(name, provider)
 
     def _sync(self, source_provider: CatalogProvider, src: Union[Table, View],
               target_provider: CatalogProvider, target: str):
@@ -102,6 +103,27 @@ class BrickSync():
             return True
         else:
             return False
+        
+    def _initialize_provider(self, name: str, provider_conf: ProviderConfig):
+        if not self.get('providers'):
+            self.providers = {}
+
+        providers_dct = self.providers
+        k = name
+        v = provider_conf
+        if provider_conf.provider.value == 'databricks':
+            logging.info(f"Initializing databricks provider {k}...")
+            providers_dct[k] = DatabricksCatalog.initialize(v)
+        elif v.provider.value == 'snowflake':
+            logging.info(f"Initializing snowflake provider {k}...")
+            providers_dct[k] = SnowflakeCatalog.initialize(v)
+        elif v.provider.value == 'glue':
+              logging.info(f"Initializing glue provider {k}...")
+              providers_dct[k] = GlueCatalog.initialize(v)
+        else:
+            raise Exception(f"Unknown provider type {v.type}")
+        self.providers = providers_dct
+
         
     def _initialize_providers(self):
         logging.info("Initializing providers")
