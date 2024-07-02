@@ -5,7 +5,7 @@ from pytest import fixture
 from unittest.mock import patch, MagicMock
 from bricksync.provider import  ProviderConfig
 from bricksync.provider.databricks import DatabricksProvider
-from bricksync.config import TableFormatPreference,SyncConfig, TableFormat,ProviderConfigType
+from bricksync.config import SyncConfig
 from bricksync.provider.catalog.databricks import UniformIcebergInfo, DatabricksCatalog
 from databricks.sdk.service.catalog import (TableInfo, 
                                             SchemaInfo, 
