@@ -105,7 +105,7 @@ class BrickSync():
             return False
         
     def _initialize_provider(self, name: str, provider_conf: ProviderConfig):
-        if not self.get('providers'):
+        if not self.providers.get('providers'):
             self.providers = {}
 
         providers_dct = self.providers
