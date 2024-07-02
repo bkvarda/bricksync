@@ -1,4 +1,5 @@
 from pydantic.dataclasses import dataclass
+from pydantic import Field
 from typing import Optional, Dict, List
 import yaml, dataclasses
 from pathlib import Path
@@ -42,7 +43,7 @@ class ProviderConfig:
     private_key_file: Optional[str] = None
     private_key_str: Optional[str] = None
     host: Optional[str] = None
-    configuration: Optional[Dict[str, str]] = None
+    configuration: Optional[Dict[str, str]] = Field(default_factory=dict)
 
 @dataclass
 class SyncConfig:
