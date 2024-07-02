@@ -6,8 +6,6 @@ from bricksync.provider.databricks import DatabricksProvider
 from bricksync.config import ProviderConfig
 from bricksync.table import Table, DeltaTable, IcebergTable, View, UniformIcebergInfo
 from typing import List, Union
-from databricks.connect import DatabricksSession
-from databricks.connect.session import SparkSession
 from databricks.sql.client import Connection
 import logging, time
 import sqlglot
@@ -17,7 +15,6 @@ class DatabricksCatalog(CatalogProvider):
     def __init__(self, provider: DatabricksProvider):
         self.provider = provider
         self.client: WorkspaceClient = provider.client
-        self.spark: SparkSession = provider.spark
         self.sql_client: Connection = provider.sql_client
 
     @classmethod

@@ -2,7 +2,6 @@ from bricksync.provider import Provider
 from bricksync.config import ProviderConfig
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import Config, oauth_service_principal
-from databricks.connect.session import DatabricksSession, SparkSession
 from databricks import sql
 from databricks.sql.client import Connection
 from cachetools import cachedmethod
@@ -12,11 +11,6 @@ class DatabricksProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
         self.provider_config = provider_config
         self.client: WorkspaceClient = self.authenticate()
-        self.cluster_id = self.provider_config.configuration.get("cluster_id")
-        self.spark: SparkSession = ( DatabricksSession.builder
-                                    .profile(self.client.config.profile)
-                                    .clusterId(next((item for item in [self.client.config.cluster_id, self.cluster_id] if item is not None), None))
-                                    .getOrCreate())
         self.sql_client: Connection = self._get_sql_client()
     @classmethod
     def initialize(cls, provider_config: ProviderConfig):
