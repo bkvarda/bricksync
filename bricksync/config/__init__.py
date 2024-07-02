@@ -80,4 +80,6 @@ class BrickSyncConfig:
     def add_sync(self, sync: SyncConfig):
         self.syncs.append(sync)
     def add_provider(self, name: str, provider: ProviderConfig):
+        if not provider.configuration:
+            provider.configuration = {}
         self.providers.append({name: provider})
