@@ -1,5 +1,4 @@
 import pytest
-from unittest import mock
 from unittest.mock import MagicMock
 from pytest import fixture
 from unittest.mock import patch, MagicMock
@@ -118,6 +117,7 @@ def dsp(mocker):
 @fixture
 def databricks_catalog(mocker):
     databricks_provider = dsp(mocker)
+    databricks_provider.client = MagicMock()
     return DatabricksCatalog(databricks_provider)
 
 def test_get_table(databricks_catalog, delta_table):
