@@ -1,4 +1,5 @@
 from databricks.sdk import WorkspaceClient
+from databricks.connect.session import SparkSession
 from databricks.sdk.service.catalog import TableInfo, TableType, DataSourceFormat
 from sqlglot import Dialect
 from bricksync.provider.catalog import CatalogProvider
@@ -6,7 +7,6 @@ from bricksync.provider.databricks import DatabricksProvider
 from bricksync.config import ProviderConfig
 from bricksync.table import Table, DeltaTable, IcebergTable, View, UniformIcebergInfo
 from typing import List, Union
-from databricks.sql.client import Connection
 import logging, time
 import sqlglot
 from sqlglot.dialects.dialect import Dialects
@@ -15,7 +15,7 @@ class DatabricksCatalog(CatalogProvider):
     def __init__(self, provider: DatabricksProvider):
         self.provider = provider
         self.client: WorkspaceClient = provider.client
-        self.sql_client: Connection = provider.sql_client
+        self.spark: SparkSession = provider.spark
 
     @classmethod
     def initialize(cls, provider_config: ProviderConfig):
@@ -56,10 +56,10 @@ class DatabricksCatalog(CatalogProvider):
             if 'already exists' in str(e):
               return
             else:
-              raise(e)
+              raise
     
     def sql(self, statement: str):
-        return self.sql_client.cursor().execute(statement).fetchall_arrow()
+        return self.spark.sql(statement).toArrow()
     
     def get_uniform_iceberg_metadata(self, table_name: str) -> UniformIcebergInfo:
         """Workaround for sdk TableInfo dataclass not including this info. Eventually we can get rid of this second call"""
@@ -83,7 +83,7 @@ class DatabricksCatalog(CatalogProvider):
         tbl : DeltaTable = self.get_table(table_name)
         properties = tbl.delta_properties
 
-        if not properties.get("delta.enableIcebergCompatV2") == "true":
+        if not properties.get("delta.enableIcebergCompatV2").lower() == "true":
             raise Exception(f"Table {table_name} is not a UniForm table")
         
         # Get latest delta version

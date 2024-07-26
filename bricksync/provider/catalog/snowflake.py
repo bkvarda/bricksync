@@ -161,7 +161,7 @@ class SnowflakeCatalog(CatalogProvider):
                                 storage_location=iceberg_metadata.split('/metadata')[0],
                                 iceberg_metadata_location=iceberg_metadata)
      
-    def create_external_table(self, table: Union[IcebergTable, DeltaTable]):
+    def create_external_table(self, table: Union[IcebergTable, DeltaTable], replace=False):
         if not table.is_iceberg():
             raise Exception(f"Table {table.name} does not have Iceberg metadata")
         table_name = table.name
@@ -179,6 +179,15 @@ class SnowflakeCatalog(CatalogProvider):
             EXTERNAL_VOLUME='{external_volume.name}'
             CATALOG='{catalog_integration.name}'
             {metadata_str}""")
+        
+        if replace:
+            statement = (
+            f"""CREATE OR REPLACE ICEBERG TABLE {table_name} 
+            EXTERNAL_VOLUME='{external_volume.name}'
+            CATALOG='{catalog_integration.name}'
+            {metadata_str}
+            COPY GRANTS""")
+
         logging.info(f"Creating external table {table_name} with statement: {statement}")
         return self._sql(statement)
     
@@ -191,7 +200,18 @@ class SnowflakeCatalog(CatalogProvider):
         external_volume = self.get_external_volume_by_path(location)
         metadata_file_path = external_volume.to_iceberg_metadata_string(location)
         statement =  f"""ALTER ICEBERG TABLE {table_name} REFRESH '{metadata_file_path}'"""
-        return self._sql(statement)
+        try:
+           result = self._sql(statement)
+           return result
+        except Exception as e:
+            logging.info(f"Snowflake error on refresh attempt: {str(e)}")
+            if "does not match the table uuid in metadata file" in str(e).lower():
+                logging.info(f"Table UUID does not match - source was likely overwritten - attempting to recreate table")
+                self.create_external_table(table, replace=True)
+                return self.refresh_external_table(table)
+            else:
+                raise
+
     
     def create_or_refresh_external_table(self, table: Union[IcebergTable, DeltaTable]):
         # If table exists
@@ -201,7 +221,7 @@ class SnowflakeCatalog(CatalogProvider):
         location = table.iceberg_metadata_location
         table_format = "ICEBERG"
         try:
-          table = self.get_table(table_name)
+          existing_table = self.get_table(table_name)
           return self.refresh_external_table(table)
         #todo: handle specific exception
         except:

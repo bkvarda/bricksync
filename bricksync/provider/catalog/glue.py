@@ -10,8 +10,6 @@ from pyiceberg import exceptions
 from bricksync.provider import ProviderConfig
 import logging
 
-logging.getLogger(__name__)
-
 class GlueCatalog(CatalogProvider):
     def __init__(self, provider: AwsProvider):
         self.provider = provider
@@ -61,7 +59,7 @@ class GlueCatalog(CatalogProvider):
               raise(e)
         return
     
-    def refresh_external_table(self, schema: str, table_name: str, metadata_location: str):
+    def refresh_external_table(self, schema: str, table_name: str, metadata_location: str) -> Table:
         glue_table = self.client._get_glue_table(schema, table_name)
         glue_table_name = f"{schema}.{table_name}"
         glue_table_version_id = glue_table.get("VersionId")
@@ -93,7 +91,7 @@ class GlueCatalog(CatalogProvider):
         return self.get_table(glue_table_name)
 
          
-    def create_or_refresh_external_table(self, table: Union[Table, View]):
+    def create_or_refresh_external_table(self, table: Union[Table, View]) -> Table:
         if table.is_view():
             raise NotImplementedError(f"GlueCatalog does not support creating or refreshing views currently")
         if not table.is_iceberg():
@@ -112,7 +110,7 @@ class GlueCatalog(CatalogProvider):
             # Assumption that table needs to be refreshed
             pass
         except Exception as e:
-            raise(e)
+            raise
         # Table exists, need to refresh it
         return self.refresh_external_table(schema, table_name, table.iceberg_metadata_location)
 

@@ -14,8 +14,7 @@ from databricks.sdk.service.catalog import (TableInfo,
                                             DependencyList, Dependency, 
                                             TableDependency)
 from databricks.sdk import WorkspaceClient
-from databricks import sql
-from databricks.sql.thrift_api.TCLIService.ttypes import TOpenSessionResp
+from databricks.connect import DatabricksSession
 
 
 @fixture
@@ -92,29 +91,21 @@ def delta_view_nested():
                       Dependency(table_full_name="my.uc.delta_view")])
                      )
 
-DUMMY_CONNECTION_ARGS = {
-        "server_hostname": "foo",
-        "http_path": "dummy_path",
-        "access_token": "tok",
-    }
-
-
-@patch("databricks.sql.client.ThriftBackend")
-def get_sql_client(mocker):
-    instance = mocker.return_value
-    mock_open_session_resp = MagicMock(spec=TOpenSessionResp)()
-    mock_open_session_resp.sessionHandle.sessionId = b'\x22'
-    instance.open_session.return_value = mock_open_session_resp
-    connection = sql.connect(**DUMMY_CONNECTION_ARGS)
-    return connection
+@patch("databricks.connect.DatabricksSession")
+def get_spark_client(mocker):
+    spark = DatabricksSession.builder.clusterId("12345").getOrCreate()
+    spark._jsc = MagicMock()
+    spark._sc = MagicMock()
+    spark._jvm = MagicMock()
+    return spark
 
 
 
 def dsp(mocker):
     w = WorkspaceClient(host="https://my.databricks.com", token="mytoken")
-    sql_client = get_sql_client()
+    spark = get_spark_client()
     mocker.patch("bricksync.provider.databricks.DatabricksProvider.authenticate", return_value=w)
-    mocker.patch("bricksync.provider.databricks.DatabricksProvider._get_sql_client", return_value=sql_client)
+    mocker.patch("bricksync.provider.databricks.DatabricksProvider._get_spark_client", return_value=spark)
     dsp = DatabricksProvider(ProviderConfig("databricks", configuration={"cluster_id": "12345"}))
 
     for attr in vars(dsp.client):
@@ -134,7 +125,40 @@ def test_get_table(databricks_catalog, delta_table):
     table = databricks_catalog.get_table("my.uc.delta_table")
     assert table.name == "my.uc.delta_table"
     assert table.storage_location == "s3://my/delta_table"
-    assert table.is_delta() == True
+    assert table.is_delta()
+    assert not table.is_iceberg()
+
+def test_get_uniform_table(databricks_catalog, delta_table):
+    databricks_catalog.client.tables.get.return_value = delta_table
+    databricks_catalog.client.api_client.do.return_value = {
+        "delta_uniform_iceberg": {
+            "metadata_location": "s3://my/metadata",
+            "converted_delta_version": "0.8.0",
+            "converted_delta_timestamp": "2021-06-01T00:00:00Z"
+        }
+
+    }
+    table = databricks_catalog.get_table("my.uc.delta_table")
+    assert table.name == "my.uc.delta_table"
+    assert table.storage_location == "s3://my/delta_table"
+    assert table.is_delta()
+    assert table.is_iceberg()
+    assert table.uniform_iceberg_info.metadata_location == "s3://my/metadata"
+    assert table.to_iceberg_table().name == "my.uc.delta_table"
+    assert table.to_iceberg_table().storage_location == "s3://my/delta_table"
+
+def test_non_uniform_table_to_iceberg(databricks_catalog, delta_table):
+    databricks_catalog.client.tables.get.return_value = delta_table
+    databricks_catalog.client.api_client.do.return_value = {}
+    table = databricks_catalog.get_table("my.uc.delta_table")
+    assert table.name == "my.uc.delta_table"
+    assert table.storage_location == "s3://my/delta_table"
+    assert table.is_delta()
+    assert not table.is_iceberg()
+    with pytest.raises(Exception) as context:
+        table.to_iceberg_table()
+    assert "Table my.uc.delta_table does not have Iceberg metadatata" in str(context.value)
+
 
 
     
