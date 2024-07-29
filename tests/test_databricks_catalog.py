@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 from pytest import fixture
 from unittest.mock import patch, MagicMock
 from bricksync.provider import  ProviderConfig
@@ -12,8 +12,10 @@ from databricks.sdk.service.catalog import (TableInfo,
                                             DataSourceFormat, ColumnInfo, 
                                             DependencyList, Dependency, 
                                             TableDependency)
-from databricks.sdk import WorkspaceClient
 from databricks.connect import DatabricksSession
+from databricks.sdk.core import Config
+from databricks.sdk.credentials_provider import credentials_strategy
+from databricks.sdk import WorkspaceClient
 
 
 @fixture
@@ -92,33 +94,21 @@ def delta_view_nested():
 
 @patch("databricks.connect.DatabricksSession")
 def get_spark_client(mocker):
-    spark = DatabricksSession.builder.clusterId("12345").getOrCreate()
-    spark._jsc = MagicMock()
-    spark._sc = MagicMock()
-    spark._jvm = MagicMock()
+    spark = create_autospec(DatabricksSession)
     return spark
 
+@credentials_strategy('noop', [])
+def noop_credentials(_: any):
+    return lambda: {}
 
-
-def dsp(mocker):
-    w = WorkspaceClient(host="https://my.databricks.com", token="mytoken")
+@pytest.fixture
+def databricks_catalog(mocker):
+    w = create_autospec(WorkspaceClient)
     spark = get_spark_client()
     mocker.patch("bricksync.provider.databricks.DatabricksProvider.authenticate", return_value=w)
     mocker.patch("bricksync.provider.databricks.DatabricksProvider._get_spark_client", return_value=spark)
     dsp = DatabricksProvider(ProviderConfig("databricks", configuration={"cluster_id": "12345"}))
-
-    for attr in vars(dsp.client):
-        if attr == "_config":
-            continue
-        else:
-            setattr(dsp.client, attr, MagicMock())
-    return dsp
-
-@fixture
-def databricks_catalog(mocker):
-    databricks_provider = dsp(mocker)
-    databricks_provider.client = MagicMock()
-    return DatabricksCatalog(databricks_provider)
+    return DatabricksCatalog(dsp)
 
 def test_get_table(databricks_catalog, delta_table):
     databricks_catalog.client.tables.get.return_value = delta_table
