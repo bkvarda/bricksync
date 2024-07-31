@@ -14,7 +14,8 @@ logging.getLogger(__name__)
 class BrickSync():
     def __init__(self, config: BrickSyncConfig):
         self.config = config
-        self.providers = self._initialize_providers()
+        self.initialized = {}
+        self.providers = {} if len(self.config.providers) < 1 else self._initialize_providers()
         
     @classmethod
     def load(cls, config_path):
@@ -35,17 +36,18 @@ class BrickSync():
             raise Exception(f"Provider {provider_name} not found: {e}. You may need to add to config.")
         
     def add_sync(self, source: str, source_provider: str, target_provider: str, source_configuration = None):
-        src = self.get_provider(source_provider)
-        tgt = self.get_provider(target_provider)
         sync_conf = SyncConfig(source, source_provider, target_provider, source_configuration)
         self.config.add_sync(sync_conf)
 
     def show_syncs(self):
         return self.config.syncs
     
-    def add_provider(self, name: str, provider: ProviderType, configuration=None):
+    def add_provider(self, name: str, provider: ProviderType, configuration=None, lazy_init=False):
         provider = ProviderConfig(provider, configuration=configuration)
         self.config.add_provider(name, provider)
+        if lazy_init:
+            return
+        
         self._initialize_provider(name, provider)
 
     def _sync(self, source_provider: CatalogProvider, src: Union[Table, View],
@@ -108,6 +110,9 @@ class BrickSync():
         if not hasattr(self, 'providers') or self.providers is None:
             self.providers = {}
 
+        if self.initialized.get(name):
+            return
+
         providers_dct = self.providers
         k = name
         v = provider_conf
@@ -123,28 +128,20 @@ class BrickSync():
         else:
             raise Exception(f"Unknown provider type {v.type}")
         self.providers = providers_dct
+        self.initialized[name] = True
 
         
     def _initialize_providers(self):
         logging.info("Initializing providers")
-        providers_dct = {}
         for providers in self.config.providers:
             for k, v in providers.items():
-                try: 
-                  if v.provider.value == 'databricks':
-                      logging.info(f"Initializing databricks provider {k}...")
-                      providers_dct[k] = DatabricksCatalog.initialize(v)
-                  elif v.provider.value == 'snowflake':
-                      logging.info(f"Initializing snowflake provider {k}...")
-                      providers_dct[k] = SnowflakeCatalog.initialize(v)
-                  elif v.provider.value == 'glue':
-                        logging.info(f"Initializing glue provider {k}...")
-                        providers_dct[k] = GlueCatalog.initialize(v)
-                  else:
-                      raise Exception(f"Unknown provider type {v.type}")
-                except Exception as e:
-                    raise Exception(f"Error initializing provider {k}: {e}")
-        return providers_dct if len(providers_dct) > 0 else None
+                if k in self.initialized:
+                    continue
+                self._initialize_provider(k, v)
+        return self.providers
+    
+    def initialize(self):
+        return self._initialize_providers()
 
             
 

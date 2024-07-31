@@ -119,8 +119,7 @@ class SnowflakeCatalog(CatalogProvider):
     
     def get_catalog(self, name: str):
         q = self._sql(f"DESCRIBE DATABASE {name}")
-        for rec in q.fetchall():
-            print(rec)
+        
         return self._format_describe_response(q)
     
     def create_catalog(self, catalog_name: str):

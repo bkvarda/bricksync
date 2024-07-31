@@ -9,6 +9,7 @@ from bricksync.table import Table, DeltaTable, IcebergTable, View, UniformIceber
 from typing import List, Union
 import logging, time
 import sqlglot
+import pyarrow
 from sqlglot.dialects.dialect import Dialects
 
 class DatabricksCatalog(CatalogProvider):
@@ -58,8 +59,14 @@ class DatabricksCatalog(CatalogProvider):
             else:
               raise
     
-    def sql(self, statement: str):
-        return self.spark.sql(statement).toArrow()
+    def sql(self, statement: str) -> pyarrow.Table:
+        try:
+            return self.spark.sql(statement).toArrow()
+        except Exception as e:
+            if 'PARSE_EMPTY_STATEMENT' in str(e):
+              raise("PARSE_EMPTY_STATEMENT error - this is likely due to a mismatch in cluster DBR version and connector version")
+            else:
+                raise
     
     def get_uniform_iceberg_metadata(self, table_name: str) -> UniformIcebergInfo:
         """Workaround for sdk TableInfo dataclass not including this info. Eventually we can get rid of this second call"""

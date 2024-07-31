@@ -37,12 +37,6 @@ class ProviderType(Enum):
 @dataclass
 class ProviderConfig:
     provider: ProviderType
-    username: Optional[str] = None
-    password: Optional[str] = None
-    token: Optional[str] = None
-    private_key_file: Optional[str] = None
-    private_key_str: Optional[str] = None
-    host: Optional[str] = None
     configuration: Optional[Dict[str, str]] = Field(default_factory=dict)
 
 @dataclass
@@ -83,3 +77,7 @@ class BrickSyncConfig:
         if not provider.configuration:
             provider.configuration = {}
         self.providers.append({name: provider})
+    def get_provider_config(self, name: str):
+        for provider in self.providers:
+            if name in provider.keys():
+                return provider[name]
