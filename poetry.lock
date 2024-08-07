@@ -800,29 +800,28 @@ test-randomorder = ["pytest-randomly"]
 
 [[package]]
 name = "databricks-connect"
-version = "15.3.0"
+version = "15.1.0"
 description = "Databricks Connect Client"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "databricks_connect-15.3.0-py2.py3-none-any.whl", hash = "sha256:d1aa36870007f52cbc632005311f9d9f952e6465d057f5a5b66bd7b45ecdd7eb"},
+    {file = "databricks_connect-15.1.0-py2.py3-none-any.whl", hash = "sha256:5032276e08280bd654384f368e96f4a1bca5f17a0bb10e1af9aca37d08fc6038"},
 ]
 
 [package.dependencies]
 databricks-sdk = ">=0.29.0"
 googleapis-common-protos = ">=1.56.4"
-grpcio = ">=1.59.3"
-grpcio-status = ">=1.59.3"
+grpcio = ">=1.56.0"
+grpcio-status = ">=1.56.0"
 numpy = ">=1.15,<2"
 packaging = ">=23.2"
 pandas = ">=1.0.5"
 py4j = "0.10.9.7"
 pyarrow = ">=4.0.0"
-setuptools = ">=68.0.0"
 six = "*"
 
 [package.extras]
-connect = ["googleapis-common-protos (>=1.56.4)", "grpcio (>=1.59.3)", "grpcio-status (>=1.59.3)", "numpy (>=1.15,<2)", "pandas (>=1.0.5)", "pyarrow (>=4.0.0)"]
+connect = ["googleapis-common-protos (>=1.56.4)", "grpcio (>=1.56.0)", "grpcio-status (>=1.56.0)", "numpy (>=1.15,<2)", "pandas (>=1.0.5)", "pyarrow (>=4.0.0)"]
 ml = ["numpy (>=1.15,<2)"]
 mllib = ["numpy (>=1.15,<2)"]
 pandas-on-spark = ["numpy (>=1.15,<2)", "pandas (>=1.0.5)", "pyarrow (>=4.0.0)"]
@@ -1898,21 +1897,6 @@ botocore = ">=1.33.2,<2.0a.0"
 crt = ["botocore[crt] (>=1.33.2,<2.0a.0)"]
 
 [[package]]
-name = "setuptools"
-version = "70.3.0"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "setuptools-70.3.0-py3-none-any.whl", hash = "sha256:fe384da74336c398e0d956d1cae0669bc02eed936cdb1d49b57de1990dc11ffc"},
-    {file = "setuptools-70.3.0.tar.gz", hash = "sha256:f171bab1dfbc86b132997f26a119f6056a57950d058587841a0082e8830f9dc5"},
-]
-
-[package.extras]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
-test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "jaraco.test", "mypy (==1.10.0)", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy", "pytest-perf", "pytest-ruff (>=0.3.2)", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
-
-[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -2117,4 +2101,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "184e7615c9e3e4a83fdff38294cb03b7f2fe5240d3cb03bc62a7bd92e9c6f7b9"
+content-hash = "9514c8aa58ac0a7c7c32ead2762f4cfe0964bbeb539faaab189d060f4479a927"

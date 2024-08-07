@@ -35,7 +35,7 @@ class DatabricksProvider(Provider):
         elif os.environ.get("DATABRICKS_RUNTIME_VERSION"):
             logging.info("Databricks provider detected DBR cluster environment. Using current spark session.")
             return SparkSession.builder.getOrCreate()
-        # If we're in a PL environment and not already running on-cluster, we need to connect to a cluster.
+        # If we want to connect to a specific cluster
         elif self.provider_config.configuration.get("cluster_id"):
             logging.info("Databricks provider connecting to supplied cluster_id for spark session")
             return (SparkSession.builder

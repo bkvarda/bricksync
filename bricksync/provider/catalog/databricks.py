@@ -1,4 +1,5 @@
 from databricks.sdk import WorkspaceClient
+import databricks.connect
 from databricks.connect.session import SparkSession
 from databricks.sdk.service.catalog import TableInfo, TableType, DataSourceFormat
 from sqlglot import Dialect
@@ -6,11 +7,15 @@ from bricksync.provider.catalog import CatalogProvider
 from bricksync.provider.databricks import DatabricksProvider
 from bricksync.config import ProviderConfig
 from bricksync.table import Table, DeltaTable, IcebergTable, View, UniformIcebergInfo
-from typing import List, Union
+from typing import List, Union, Optional
 import logging, time
 import sqlglot
-import pyarrow
+import pyspark
 from sqlglot.dialects.dialect import Dialects
+from dataclasses import dataclass
+
+class DBSQLException(Exception):
+    pass
 
 class DatabricksCatalog(CatalogProvider):
     def __init__(self, provider: DatabricksProvider):
@@ -59,12 +64,16 @@ class DatabricksCatalog(CatalogProvider):
             else:
               raise
     
-    def sql(self, statement: str) -> pyarrow.Table:
+    def sql(self, statement: str) -> List[pyspark.sql.Row]:
         try:
-            return self.spark.sql(statement).toArrow()
+            return self.spark.sql(statement).collect()
         except Exception as e:
             if 'PARSE_EMPTY_STATEMENT' in str(e):
-              raise("PARSE_EMPTY_STATEMENT error - this is likely due to a mismatch in cluster DBR version and connector version")
+              logging.error(f"Error executing SQL statement: {e}")
+              logging.error(f"Diagnostics: Spark Version: {self.spark.version}")
+              logging.error(f"DBConnect: {self.spark.client._builder.__dict__}")
+              logging.error(f"DBConnect lib: {databricks.connect.__dbconnect_version__}")
+              raise DBSQLException("PARSE_EMPTY_STATEMENT error - this is likely due to a mismatch in cluster DBR version and connector version")
             else:
                 raise
     
@@ -95,7 +104,7 @@ class DatabricksCatalog(CatalogProvider):
         
         # Get latest delta version
         detail = self.sql(f"DESCRIBE HISTORY {table_name} LIMIT 1")
-        last_delta_version = detail.column("version").to_pylist()[0]
+        last_delta_version = detail[0].version
         last_uniform_version = (tbl.uniform_iceberg_info.converted_delta_version 
                                 if tbl.uniform_iceberg_info else 0)
         logging.info(f"Last delta version: {last_delta_version}. Last uniform version: {last_uniform_version}")
@@ -154,7 +163,7 @@ class DatabricksCatalog(CatalogProvider):
             raise Exception(f"Table type {table_info.table_type.value} is not currently supported")
 
     
-    def create_or_refresh_external_table(self, table: Union[DeltaTable, IcebergTable]):
+    def create_or_refresh_external_table(self, table: Union[DeltaTable, IcebergTable], **kwargs):
         # Given an Iceberg table, convert to Delta
         if table.is_delta():
             statement = f"""CREATE TABLE IF NOT EXISTS {table.name}
@@ -172,7 +181,7 @@ class DatabricksCatalog(CatalogProvider):
         else:
             raise Exception(f"Unsupported table type for table {table.name}")
     
-    def create_or_refresh_view(self, view: View):
+    def create_or_refresh_view(self, view: View, **kwargs):
         # Issue query to create or refresh view
         converted_view_def = self.convert_view_dialect(view.view_definition, view.dialect)
         statement = f"""CREATE OR REPLACE VIEW {view.name} AS {converted_view_def}"""

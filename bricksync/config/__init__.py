@@ -61,9 +61,6 @@ class BrickSyncConfig:
     syncs: List[SyncConfig] = dataclasses.field(default_factory=list) 
     skip_failures: bool = False
     continuous: bool = False
-    target_format_preference: TableFormatPreference = TableFormatPreference.DELTA_PREFERRED
-    target_sync_strategy: TargetSyncStrategy = TargetSyncStrategy.MIRROR
-    secret_provider: Optional[str] = None
     @classmethod
     def load(cls, config_path):
         yml = yaml.safe_load(Path(config_path).read_text())

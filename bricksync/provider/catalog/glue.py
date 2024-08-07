@@ -59,7 +59,7 @@ class GlueCatalog(CatalogProvider):
               raise(e)
         return
     
-    def refresh_external_table(self, schema: str, table_name: str, metadata_location: str) -> Table:
+    def refresh_external_table(self, schema: str, table_name: str, metadata_location: str, **kwargs) -> Table:
         glue_table = self.client._get_glue_table(schema, table_name)
         glue_table_name = f"{schema}.{table_name}"
         glue_table_version_id = glue_table.get("VersionId")
@@ -91,7 +91,7 @@ class GlueCatalog(CatalogProvider):
         return self.get_table(glue_table_name)
 
          
-    def create_or_refresh_external_table(self, table: Union[Table, View]) -> Table:
+    def create_or_refresh_external_table(self, table: Union[Table, View], **kwargs) -> Table:
         if table.is_view():
             raise NotImplementedError(f"GlueCatalog does not support creating or refreshing views currently")
         if not table.is_iceberg():
@@ -114,7 +114,7 @@ class GlueCatalog(CatalogProvider):
         # Table exists, need to refresh it
         return self.refresh_external_table(schema, table_name, table.iceberg_metadata_location)
 
-    def create_or_refresh_view(self, view: View):
+    def create_or_refresh_view(self, view: View, **kwargs):
         raise NotImplementedError("GlueCatalog does not support creating or refreshing views currently")
         pass
 

@@ -1,7 +1,7 @@
 from bricksync.provider.snowflake import SnowflakeProvider
 from bricksync.provider.catalog import CatalogProvider
 from bricksync.config import ProviderConfig
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 from bricksync.table import Table, DeltaTable, IcebergTable, View
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector import SnowflakeConnection
@@ -17,11 +17,6 @@ from enum import Enum
 class SnowflakeTableType(Enum):
     VIEW = "VIEW"
     TABLE = "TABLE"
-
-@dataclass
-class SnowflakeSyncOptions:
-    external_volume_name: Optional[str] = None
-    catalog_integration_name: Optional[str] = None
 
 @dataclass 
 class SnowflakeCatalogIntegration:
@@ -119,7 +114,7 @@ class SnowflakeCatalog(CatalogProvider):
     
     def get_catalog(self, name: str):
         q = self._sql(f"DESCRIBE DATABASE {name}")
-        
+
         return self._format_describe_response(q)
     
     def create_catalog(self, catalog_name: str):
@@ -160,7 +155,7 @@ class SnowflakeCatalog(CatalogProvider):
                                 storage_location=iceberg_metadata.split('/metadata')[0],
                                 iceberg_metadata_location=iceberg_metadata)
      
-    def create_external_table(self, table: Union[IcebergTable, DeltaTable], replace=False):
+    def create_external_table(self, table: Union[IcebergTable, DeltaTable], replace=False, **kwargs):
         if not table.is_iceberg():
             raise Exception(f"Table {table.name} does not have Iceberg metadata")
         table_name = table.name
@@ -190,7 +185,7 @@ class SnowflakeCatalog(CatalogProvider):
         logging.info(f"Creating external table {table_name} with statement: {statement}")
         return self._sql(statement)
     
-    def refresh_external_table(self, table: Union[IcebergTable, DeltaTable]):
+    def refresh_external_table(self, table: Union[IcebergTable, DeltaTable], **kwargs):
         if not table.is_iceberg():
             raise Exception(f"Table {table.name} does not have Iceberg metadata")
         table_name = table.name
@@ -206,13 +201,13 @@ class SnowflakeCatalog(CatalogProvider):
             logging.info(f"Snowflake error on refresh attempt: {str(e)}")
             if "does not match the table uuid in metadata file" in str(e).lower():
                 logging.info(f"Table UUID does not match - source was likely overwritten - attempting to recreate table")
-                self.create_external_table(table, replace=True)
-                return self.refresh_external_table(table)
+                self.create_external_table(table, replace=True, **kwargs)
+                return self.refresh_external_table(table, **kwargs)
             else:
                 raise
 
     
-    def create_or_refresh_external_table(self, table: Union[IcebergTable, DeltaTable]):
+    def create_or_refresh_external_table(self, table: Union[IcebergTable, DeltaTable], **kwargs):
         # If table exists
         if not table.is_iceberg():
             raise Exception(f"Table {table.name} does not have Iceberg metadata")
@@ -227,7 +222,7 @@ class SnowflakeCatalog(CatalogProvider):
             self.create_external_table(table)
             return self.refresh_external_table(table)
     
-    def create_or_refresh_view(self, view: View):
+    def create_or_refresh_view(self, view: View, **kwargs):
         name = view.name
         view_def = self.convert_view_dialect(view.view_definition, view.dialect)
         q = self._sql(f"""CREATE OR REPLACE VIEW {name} 

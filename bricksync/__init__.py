@@ -15,7 +15,10 @@ class BrickSync():
     def __init__(self, config: BrickSyncConfig):
         self.config = config
         self.initialized = {}
-        self.providers = {} if len(self.config.providers) < 1 else self._initialize_providers()
+        self.providers = {}
+        
+        if len(self.config.providers) >= 1:
+            self._initialize_providers()
         
     @classmethod
     def load(cls, config_path):
@@ -48,12 +51,10 @@ class BrickSync():
         if lazy_init:
             return
         
-        self._initialize_provider(name, provider)
+        return self._initialize_provider(name, provider)
 
     def _sync(self, source_provider: CatalogProvider, src: Union[Table, View],
-              target_provider: CatalogProvider, target: str):
-        print(f"Working on {src.name}")
-        print(src)
+              target_provider: CatalogProvider, target: str, options: Optional[Dict[str, str]] = None):
         target_catalog = target_provider.get_catalog_from_name(src)
         target_schema = target_provider.get_schema_from_name(src)
         target_provider.create_catalog(target_catalog)
@@ -61,8 +62,6 @@ class BrickSync():
         if src.is_view():
             base_tables = src.base_tables
             for t in base_tables:
-                print(t)
-                print(f"Working on {t.name}")
                 self._sync(source_provider, t, target_provider, target)
             target_provider.create_or_refresh_view(src)
         else:
@@ -70,30 +69,25 @@ class BrickSync():
             if src.is_delta():
                 try:
                     iceberg = src.to_iceberg_table()
-                    print(f"Working on {src.name}")
-                    print(f"Working on {iceberg.name}")
-                    print(src)
-                    print(target_provider.create_or_refresh_external_table(iceberg))
+                    target_provider.create_or_refresh_external_table(iceberg)
                 except:
                     raise Exception("Error converting delta table to iceberg")
             elif src.is_iceberg():
-                print(f"Working on {src.name}")
-                print(src)
-                print(target_provider.create_or_refresh_external_table(src))
+                target_provider.create_or_refresh_external_table(src)
             else:
                 raise Exception("Unsupported table type")
         return
  
     
     def sync(self, source_provider: str, source: str, 
-             target_provider: str, target: str):
+             target_provider: str, target: str, **kwargs):
         src_provider: CatalogProvider = self.get_provider(source_provider)
         tgt_provider: CatalogProvider = self.get_provider(target_provider)
         source_table: Union[View, Table] = src_provider.get_table(source)
         self._sync(src_provider, source_table, tgt_provider, target)
         return
     
-    def sync_all(self, source_provider: str, source: str, target_providers: List[str], target: str):
+    def sync_all(self, source_provider: str, source: str, target_providers: List[str], target: str, **kwargs):
         src_provider: CatalogProvider = self.get_provider(source_provider)
         for tgt in target_providers:
             tgt_provider: CatalogProvider = self.get_provider(tgt)
@@ -107,30 +101,27 @@ class BrickSync():
             return False
         
     def _initialize_provider(self, name: str, provider_conf: ProviderConfig):
-        if not hasattr(self, 'providers') or self.providers is None:
-            self.providers = {}
-
+ 
         if self.initialized.get(name):
             return
-
-        providers_dct = self.providers
+        
         k = name
         v = provider_conf
         if provider_conf.provider.value == 'databricks':
             logging.info(f"Initializing databricks provider {k}...")
-            providers_dct[k] = DatabricksCatalog.initialize(v)
+            self.providers[k] = DatabricksCatalog.initialize(v)
         elif v.provider.value == 'snowflake':
             logging.info(f"Initializing snowflake provider {k}...")
-            providers_dct[k] = SnowflakeCatalog.initialize(v)
+            self.providers[k] = SnowflakeCatalog.initialize(v)
         elif v.provider.value == 'glue':
-              logging.info(f"Initializing glue provider {k}...")
-              providers_dct[k] = GlueCatalog.initialize(v)
+            logging.info(f"Initializing glue provider {k}...")
+            self.providers[k] = GlueCatalog.initialize(v)
         else:
             raise Exception(f"Unknown provider type {v.type}")
-        self.providers = providers_dct
-        self.initialized[name] = True
 
-        
+        self.initialized[name] = True
+        return self
+
     def _initialize_providers(self):
         logging.info("Initializing providers")
         for providers in self.config.providers:
@@ -138,7 +129,7 @@ class BrickSync():
                 if k in self.initialized:
                     continue
                 self._initialize_provider(k, v)
-        return self.providers
+        return self
     
     def initialize(self):
         return self._initialize_providers()

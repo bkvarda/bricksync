@@ -6,7 +6,7 @@ from bricksync.provider import  ProviderConfig
 from bricksync.provider.databricks import DatabricksProvider
 from bricksync.config import SyncConfig
 from bricksync.provider.catalog.databricks import UniformIcebergInfo, DatabricksCatalog
-from bricksync.table import IcebergTable
+from bricksync.table import IcebergTable, DeltaTable
 from databricks.sdk.service.catalog import (TableInfo, 
                                             TableType, 
                                             DataSourceFormat, ColumnInfo, 
@@ -60,7 +60,8 @@ def delta_table():
                      table_type=TableType.MANAGED,
                      data_source_format=DataSourceFormat.DELTA,
                      storage_location="s3://my/delta_table",
-                     columns=[ColumnInfo(name="col1",partition_index=None)])
+                     columns=[ColumnInfo(name="col1",partition_index=None)],
+                     properties={"delta.enableIcebergCompatV2": "false"})
 
 @fixture 
 def iceberg_table():
@@ -201,6 +202,12 @@ def test_reverse_uniform(databricks_catalog, iceberg_table):
             REFRESH TABLE my.uc.iceberg_table METADATA_PATH 's3://my/iceberg_table/metadata';
             """ 
     databricks_catalog.sql.assert_called_with(statement)
+
+def test_generate_iceberg_metadata_non_uniform(databricks_catalog, delta_table):
+    databricks_catalog.client.tables.get.return_value = delta_table
+    with pytest.raises(Exception) as context:
+        databricks_catalog.generate_iceberg_metadata("my.uc.delta_table")
+    assert "is not a UniForm table" in str(context.value)
 
 
 
