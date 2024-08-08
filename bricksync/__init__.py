@@ -34,6 +34,12 @@ class BrickSync():
     
     def get_provider(self, provider_name: str) -> Provider:
         try:
+            if provider_name in self.initialized:
+                if self.initialized[provider_name] is False:
+                    logging.info(f"Provider {provider_name} not initialized, initializing now...")
+                    self._initialize_provider(provider_name, self.config.get_provider_config(provider_name))
+                    return self.providers[provider_name]
+
             return self.get_providers()[provider_name]
         except Exception as e:
             raise Exception(f"Provider {provider_name} not found: {e}. You may need to add to config.")
@@ -49,12 +55,13 @@ class BrickSync():
         provider = ProviderConfig(provider, configuration=configuration)
         self.config.add_provider(name, provider)
         if lazy_init:
+            self.initialized[name] = False
             return
         
         return self._initialize_provider(name, provider)
 
     def _sync(self, source_provider: CatalogProvider, src: Union[Table, View],
-              target_provider: CatalogProvider, target: str, options: Optional[Dict[str, str]] = None):
+              target_provider: CatalogProvider, target: str, **kwargs):
         target_catalog = target_provider.get_catalog_from_name(src)
         target_schema = target_provider.get_schema_from_name(src)
         target_provider.create_catalog(target_catalog)
@@ -63,17 +70,17 @@ class BrickSync():
             base_tables = src.base_tables
             for t in base_tables:
                 self._sync(source_provider, t, target_provider, target)
-            target_provider.create_or_refresh_view(src)
+            target_provider.create_or_refresh_view(src, **kwargs)
         else:
             # if delta table
             if src.is_delta():
                 try:
                     iceberg = src.to_iceberg_table()
-                    target_provider.create_or_refresh_external_table(iceberg)
+                    target_provider.create_or_refresh_external_table(iceberg, **kwargs)
                 except:
                     raise Exception("Error converting delta table to iceberg")
             elif src.is_iceberg():
-                target_provider.create_or_refresh_external_table(src)
+                target_provider.create_or_refresh_external_table(src, **kwargs)
             else:
                 raise Exception("Unsupported table type")
         return
@@ -84,7 +91,7 @@ class BrickSync():
         src_provider: CatalogProvider = self.get_provider(source_provider)
         tgt_provider: CatalogProvider = self.get_provider(target_provider)
         source_table: Union[View, Table] = src_provider.get_table(source)
-        self._sync(src_provider, source_table, tgt_provider, target)
+        self._sync(src_provider, source_table, tgt_provider, target, **kwargs)
         return
     
     def sync_all(self, source_provider: str, source: str, target_providers: List[str], target: str, **kwargs):
@@ -103,7 +110,8 @@ class BrickSync():
     def _initialize_provider(self, name: str, provider_conf: ProviderConfig):
  
         if self.initialized.get(name):
-            return
+            if self.initialized[name] is True:
+                return self
         
         k = name
         v = provider_conf
@@ -127,7 +135,8 @@ class BrickSync():
         for providers in self.config.providers:
             for k, v in providers.items():
                 if k in self.initialized:
-                    continue
+                    if self.initialized[k] is True:
+                      continue
                 self._initialize_provider(k, v)
         return self
     
