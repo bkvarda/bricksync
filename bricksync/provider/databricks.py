@@ -15,7 +15,7 @@ class DatabricksProvider(Provider):
         return cls(provider_config)
     
     @cached_property
-    def authenticate(self):
+    def authenticate(self) -> WorkspaceClient:
         try:
           client = (WorkspaceClient() if not self.provider_config.configuration else
               WorkspaceClient(
