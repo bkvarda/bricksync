@@ -8,7 +8,6 @@ from functools import cached_property
 class DatabricksProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
         self.provider_config = provider_config
-        self.spark: SparkSession = self._get_spark_client()
    
     @classmethod
     def initialize(cls, provider_config: ProviderConfig):
@@ -17,6 +16,10 @@ class DatabricksProvider(Provider):
     @cached_property
     def client(self) -> WorkspaceClient:
         return self.authenticate()
+    
+    @cached_property
+    def spark(self) -> SparkSession:
+        return self._get_spark_client()
     
     def authenticate(self) -> WorkspaceClient:
         try:
@@ -31,7 +34,6 @@ class DatabricksProvider(Provider):
         except: 
           raise
        
-    @cached_property
     def _get_spark_client(self):
         # If we're current running on serverless, use current serverless
         if os.environ.get("IS_SERVERLESS") == "TRUE":
