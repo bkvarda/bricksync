@@ -8,13 +8,16 @@ from functools import cached_property
 class DatabricksProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
         self.provider_config = provider_config
-        self.client: WorkspaceClient = self.authenticate()
         self.spark: SparkSession = self._get_spark_client()
+   
     @classmethod
     def initialize(cls, provider_config: ProviderConfig):
         return cls(provider_config)
     
     @cached_property
+    def client(self) -> WorkspaceClient:
+        return self.authenticate()
+    
     def authenticate(self) -> WorkspaceClient:
         try:
           client = (WorkspaceClient() if not self.provider_config.configuration else

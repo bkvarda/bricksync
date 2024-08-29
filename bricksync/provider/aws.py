@@ -8,13 +8,15 @@ from functools import cached_property
 class AwsProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
         self.provider_config = provider_config
-        self.boto_session = self.authenticate()
 
     @classmethod
     def initialize(cls, config: ProviderConfig):
         return cls(config)
     
     @cached_property
+    def boto_session(self):
+        return self.authenticate()
+    
     def authenticate(self):
         if not self.provider_config.configuration:
             raise Exception("No configuration found for AWS provider. Minimally, region_name must be provided")

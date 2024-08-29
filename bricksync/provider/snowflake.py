@@ -7,13 +7,15 @@ from functools import cached_property
 class SnowflakeProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
         self.provider_config = provider_config
-        self.client: SnowflakeConnection = self.authenticate()
     
     @classmethod
     def initialize(cls, provider_config: ProviderConfig):
         return cls(provider_config)
     
     @cached_property
+    def client(self) -> SnowflakeConnection:
+        return self.authenticate()
+    
     def authenticate(self):
         try:
             client = (
