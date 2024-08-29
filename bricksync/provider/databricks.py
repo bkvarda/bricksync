@@ -3,6 +3,7 @@ from bricksync.config import ProviderConfig
 from databricks.sdk import WorkspaceClient
 from databricks.connect import DatabricksSession as SparkSession
 import os, logging
+from functools import cached_property
 
 class DatabricksProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
@@ -13,6 +14,7 @@ class DatabricksProvider(Provider):
     def initialize(cls, provider_config: ProviderConfig):
         return cls(provider_config)
     
+    @cached_property
     def authenticate(self):
         try:
           client = (WorkspaceClient() if not self.provider_config.configuration else
@@ -26,6 +28,7 @@ class DatabricksProvider(Provider):
         except: 
           raise
        
+    @cached_property
     def _get_spark_client(self):
         # If we're current running on serverless, use current serverless
         if os.environ.get("IS_SERVERLESS") == "TRUE":

@@ -2,6 +2,7 @@ from bricksync.provider import Provider
 from bricksync.config import ProviderConfig
 import boto3
 import logging, os
+from functools import cached_property
 
 
 class AwsProvider(Provider):
@@ -13,6 +14,7 @@ class AwsProvider(Provider):
     def initialize(cls, config: ProviderConfig):
         return cls(config)
     
+    @cached_property
     def authenticate(self):
         if not self.provider_config.configuration:
             raise Exception("No configuration found for AWS provider. Minimally, region_name must be provided")

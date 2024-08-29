@@ -2,6 +2,7 @@ from bricksync.provider import Provider
 from bricksync.config import ProviderConfig
 from snowflake.connector import SnowflakeConnection
 import snowflake.connector as sf
+from functools import cached_property
 
 class SnowflakeProvider(Provider):
     def __init__(self, provider_config: ProviderConfig):
@@ -12,6 +13,7 @@ class SnowflakeProvider(Provider):
     def initialize(cls, provider_config: ProviderConfig):
         return cls(provider_config)
     
+    @cached_property
     def authenticate(self):
         try:
             client = (
